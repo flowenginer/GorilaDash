@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gorila Dash</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .data-table { font-size: 0.875rem; }
+        .data-table th, .data-table td { padding: 0.75rem; vertical-align: middle; }
+        .filter-dropdown { transition: all 0.3s ease; }
+        .card-hover:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%,100%{opacity:1;}50%{opacity:0.5;} }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <div class="min-h-screen">
+        <header class="bg-gradient-to-r from-red-700 to-red-900 text-white shadow-lg">
+            <div class="container mx-auto px-4 py-6 flex justify-between items-center">
+                <div class="flex items-center">
+                    <img src="https://gorilakingtrader.com.br/wp-content/uploads/2025/06/O-Recomeco-2.webp" alt="Gorila Trader" class="h-16 mr-3">
+                    <h1 class="text-2xl font-bold">Gorila Dash</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="refresh-btn" class="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg flex items-center transition-all duration-300 hover:shadow-lg">
+                        <i class="fas fa-sync-alt mr-2"></i>Atualizar Dados
+                    </button>
+                    <span id="last-update" class="text-red-200 hidden md:block">Última atualização: --/--/---- --:--</span>
+                </div>
+            </div>
+        </header>
+        <main class="container mx-auto px-4 py-8">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-xl shadow-md p-6 card-hover">
+                    <p class="text-gray-500">Total de Leads</p>
+                    <h3 id="total-leads" class="text-3xl font-bold text-indigo-700">--</h3>
+                </div>
+                <div class="bg-white rounded-xl shadow-md p-6 card-hover">
+                    <p class="text-gray-500">No Grupo</p>
+                    <h3 id="in-group" class="text-3xl font-bold text-green-600">--</h3>
+                    <p id="in-group-percent" class="text-sm text-gray-500">--% do total</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-md p-6 card-hover">
+                    <p class="text-gray-500">Vivem de Trade</p>
+                    <h3 id="live-from-trade" class="text-3xl font-bold text-blue-600">--</h3>
+                    <p id="live-from-trade-percent" class="text-sm text-gray-500">--% do total</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-md p-6 card-hover">
+                    <p class="text-gray-500">Origem Campeã</p>
+                    <h3 id="from-instagram" class="text-3xl font-bold text-purple-600">--</h3>
+                    <p id="from-instagram-percent" class="text-sm text-gray-500">--% do total</p>
+                </div>
+            </div>
+            <!-- Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-lg font-semibold mb-4">Distribuição por Idade</h2>
+                    <canvas id="ageChart" class="h-64"></canvas>
+                </div>
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-lg font-semibold mb-4">Distribuição por Estado</h2>
+                    <canvas id="stateChart" class="h-64"></canvas>
+                </div>
+            </div>
+            <!-- Filters & Table -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden mb-8">
+                <div class="p-6 border-b border-gray-200 flex flex-wrap gap-4 justify-between">
+                    <h2 class="text-lg font-semibold">Dados dos Leads</h2>
+                    <div class="flex gap-2">
+                        <select id="filter-group" class="bg-gray-100 border-gray-300 rounded-lg px-4 py-2 focus:ring-indigo-500 filter-dropdown">
+                            <option value="">Todos os grupos</option>
+                            <option value="Sim">No grupo</option>
+                            <option value="Não">Fora do grupo</option>
+                        </select>
+                        <select id="filter-state" class="bg-gray-100 border-gray-300 rounded-lg px-4 py-2 focus:ring-indigo-500 filter-dropdown">
+                            <option value="">Todos os estados</option>
+                        </select>
+                        <select id="filter-income" class="bg-gray-100 border-gray-300 rounded-lg px-4 py-2 focus:ring-indigo-500 filter-dropdown">
+                            <option value="">Todas as rendas</option>
+                            <option value="Sim! Consigo viver muito bem.">Vive de trade</option>
+                            <option value="Não! Preciso complementar minha renda.">Complementa renda</option>
+                            <option value="Não! 100% da minha renda vem de outro lugar.">Outra renda</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full data-table">
+                        <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+                            <tr>
+                                <th class="px-6 py-3">Nome</th>
+                                <th class="px-6 py-3">Email</th>
+                                <th class="px-6 py-3 hidden md:table-cell">Estado</th>
+                                <th class="px-6 py-3 hidden lg:table-cell">Idade</th>
+                                <th class="px-6 py-3">No Grupo?</th>
+                                <th class="px-6 py-3 hidden xl:table-cell">Vive de Trade?</th>
+                                <th class="px-6 py-3">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="data-table-body" class="divide-y divide-gray-200 text-gray-600">
+                            <!-- linhas carregando ou dados aqui -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+                    <div class="text-sm text-gray-500">
+                        Mostrando <span id="current-count" class="font-medium">0</span> de <span id="total-count" class="font-medium">0</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="prev-page" class="px-4 py-2 bg-gray-100 rounded-lg disabled:opacity-50" disabled>
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <button id="next-page" class="px-4 py-2 bg-gray-100 rounded-lg disabled:opacity-50" disabled>
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- UTM Table -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden mb-8">
+                <div class="p-6 border-b border-gray-200">
+                    <h2 class="text-lg font-semibold">Leads por Origem (UTM)</h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full data-table">
+                        <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+                            <tr>
+                                <th class="px-6 py-3">Origem</th>
+                                <th class="px-6 py-3">Total de Leads</th>
+                                <th class="px-6 py-3">% do Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="utm-table-body" class="divide-y divide-gray-200 text-gray-600">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- Group Entry Chart -->
+            <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+                <h2 class="text-lg font-semibold mb-4">Entrada no Grupo por Dia</h2>
+                <canvas id="groupEntryChart" class="h-64"></canvas>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="lead-modal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 opacity-75" aria-hidden="true"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+            <div class="inline-block bg-white rounded-lg overflow-hidden shadow-xl transform transition-all sm:align-middle sm:max-w-2xl sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <i class="fas fa-user text-indigo-600"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                            <h3 id="modal-title" class="text-lg font-medium text-gray-900">Detalhes do Lead</h3>
+                            <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-500">
+                                <div><p>Nome:</p><p id="modal-name" class="font-medium text-gray-900">--</p></div>
+                                <div><p>Email:</p><p id="modal-email" class="font-medium text-gray-900">--</p></div>
+                                <div><p>Telefone:</p><p id="modal-phone" class="font-medium text-gray-900">--</p></div>
+                                <div><p>Estado:</p><p id="modal-state" class="font-medium text-gray-900">--</p></div>
+                                <div><p>Estado Civil:</p><p id="modal-marital" class="font-medium text-gray-900">--</p></div>
+                                <div><p>Idade:</p><p id="modal-age" class="font-medium text-gray-900">--</p></div>
+                                <div><p>Filhos:</p><p id="modal-children" class="font-medium text-gray-900">--</p></div>
+                                <div><p>Tempo Conhecimento:</p><p id="modal-time" class="font-medium text-gray-900">--</p></div>
+                                <div><p>Vive de Trade:</p><p id="modal-income" class="font-medium text-gray-900">--</p></div>
+                                <div><p>No Grupo:</p><p id="modal-group" class="font-medium text-gray-900">--</p></div>
+                                <div><p>Origem:</p><p id="modal-source" class="font-medium text-gray-900">--</p></div>
+                                <div><p>ID:</p><p id="modal-id" class="font-medium text-gray-900">--</p></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button id="close-modal" class="w-full inline-flex justify-center rounded-md border px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 sm:ml-3 sm:w-auto sm:text-sm">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Globals
+        let allLeads = [], filteredLeads = [], currentPage = 1, leadsPerPage = 10;
+        // DOM
+        const dataTableBody = document.getElementById('data-table-body');
+        const totalLeadsEl   = document.getElementById('total-leads');
+        const inGroupEl      = document.getElementById('in-group');
+        const inGroupPercEl  = document.getElementById('in-group-percent');
+        const liveTradeEl    = document.getElementById('live-from-trade');
+        const liveTradePercEl= document.getElementById('live-from-trade-percent');
+        const fromInstaEl    = document.getElementById('from-instagram');
+        const fromInstaPercEl= document.getElementById('from-instagram-percent');
+        const utmTableBody   = document.getElementById('utm-table-body');
+        const lastUpdateEl   = document.getElementById('last-update');
+        const refreshBtn     = document.getElementById('refresh-btn');
+        const filterGroup    = document.getElementById('filter-group');
+        const filterState    = document.getElementById('filter-state');
+        const filterIncome   = document.getElementById('filter-income');
+        const prevPageBtn    = document.getElementById('prev-page');
+        const nextPageBtn    = document.getElementById('next-page');
+        const currentCountEl = document.getElementById('current-count');
+        const totalCountEl   = document.getElementById('total-count');
+        // Charts
+        let ageChart, stateChart, groupEntryChart;
+        // Modal
+        const leadModal     = document.getElementById('lead-modal');
+        const closeModalBtn = document.getElementById('close-modal');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+            initializeCharts();
+            fetchData();
+        });
+
+        function setupEventListeners() {
+            refreshBtn.addEventListener('click', fetchData);
+            filterGroup.addEventListener('change', applyFilters);
+            filterState.addEventListener('change', applyFilters);
+            filterIncome.addEventListener('change', applyFilters);
+            prevPageBtn.addEventListener('click', () => { if (currentPage>1){currentPage--; renderTable();}});
+            nextPageBtn.addEventListener('click', () => { if (currentPage<Math.ceil(filteredLeads.length/leadsPerPage)){currentPage++; renderTable();}});
+            closeModalBtn.addEventListener('click', ()=> leadModal.classList.add('hidden'));
+        }
+
+        function loadingRowHTML() {
+            return `<tr><td colspan="7" class="py-8 text-center">` +
+                   `<div class="flex justify-center"><div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-indigo-500"></div></div>` +
+                   `<p class="mt-2">Carregando dados...</p></td></tr>`;
+        }
+
+        function fetchData() {
+            dataTableBody.innerHTML = loadingRowHTML();
+            utmTableBody.innerHTML  = loadingRowHTML();
+            fetch('https://nwh.chelsan.com.br/webhook/dashgorilaGet')
+                .then(r=>{ if(!r.ok) throw new Error(`Status ${r.status}`); return r.json(); })
+                .then(data=> processData(data))
+                .catch(err=>{
+                    console.error('Erro ao buscar dados:', err);
+                    dataTableBody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-red-500">Erro ao carregar dados. Tente novamente.</td></tr>`;
+                    utmTableBody.innerHTML  = dataTableBody.innerHTML;
+                });
+        }
+
+        function processData(data) {
+            allLeads     = data;
+            filteredLeads= [...allLeads];
+            updateStats();
+            updateFilters();
+            updateCharts();
+            currentPage=1; renderTable(); renderUTMTable();
+            const now=new Date(); lastUpdateEl.textContent=`Última atualização: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+        }
+
+        function updateStats() {
+            const total=allLeads.length;
+            const inGroupCount = allLeads.filter(l=>l['Entrou no Grupo?']==='Sim').length;
+            const liveCount    = allLeads.filter(l=>l['Vive de Trader?']==='Sim! Consigo viver muito bem.').length;
+            totalLeadsEl.textContent = total;
+            inGroupEl.textContent    = inGroupCount;
+            inGroupPercEl.textContent= `${Math.round(inGroupCount/total*100)}% do total`;
+            liveTradeEl.textContent  = liveCount;
+            liveTradePercEl.textContent=`${Math.round(liveCount/total*100)}% do total`;
+            const utmCounts={}; allLeads.forEach(l=>{const s=l['utm_source']||'Sem UTM'; utmCounts[s]=(utmCounts[s]||0)+1;});
+            const topSource=Object.entries(utmCounts).sort((a,b)=>b[1]-a[1])[0]||['-',0];
+            fromInstaEl.textContent = topSource[0];
+            fromInstaPercEl.textContent=`${Math.round(topSource[1]/total*100)}% do total`;
+        }
+
+        function updateFilters() {
+            const states=[...new Set(allLeads.map(l=>l['Estado']))].sort();
+            filterState.innerHTML=`<option value="">Todos os estados</option>`+
+                states.map(s=>`<option value="${s}">${s}</option>`).join('');
+        }
+
+        function updateCharts() {
+            // Entrada no grupo
+            const dateCounts={};
+            allLeads.forEach(l=>{ if(l['Entrou no Grupo?']==='Sim'){ dateCounts[l['Data']]=(dateCounts[l['Data']]||0)+1; } });
+            const sortedDates=Object.keys(dateCounts).sort();
+            groupEntryChart.data.labels=sortedDates;
+            groupEntryChart.data.datasets[0].data=sortedDates.map(d=>dateCounts[d]);
+            groupEntryChart.update();
+
+            // Idade
+            const ageGroups=['18 a 24','25 a 34','35 a 44','45 a 54','55+'];
+            const ageCounts=ageGroups.reduce((acc,g)=>{ acc[g]=allLeads.filter(l=>l['Idade']===g).length; return acc; },{});
+            ageChart.data.labels=ageGroups;
+            ageChart.data.datasets[0].data=ageGroups.map(g=>ageCounts[g]);
+            ageChart.update();
+
+            // Estados (Pie)
+            const stateCounts={};
+            allLeads.forEach(l=>{ stateCounts[l['Estado']] = (stateCounts[l['Estado']]||0) + 1; });
+            const entries=Object.entries(stateCounts).sort((a,b)=>b[1]-a[1]);
+            const top5=entries.slice(0,5);
+            const othersCount=entries.slice(5).reduce((sum,e)=>sum+e[1],0);
+
+            const labels = [...top5.map(e=>e[0]), 'Outros'];
+            const data   = [...top5.map(e=>e[1]), othersCount];
+
+            stateChart.data.labels = labels;
+            stateChart.data.datasets[0].data = data;
+
+            // Ajusta o backgroundColor para o número de fatias
+            const palette = stateChart.data.datasets[0].backgroundColor;
+            stateChart.data.datasets[0].backgroundColor = palette.slice(0, labels.length);
+
+            stateChart.update();
+        }
+
+        function applyFilters() {
+            const gf=filterGroup.value, sf=filterState.value, inf=filterIncome.value;
+            filteredLeads = allLeads.filter(l =>
+               (!gf  || l['Entrou no Grupo?']  === gf) &&
+               (!sf  || l['Estado']            === sf) &&
+               (!inf || l['Vive de Trader?']   === inf)
+            );
+            currentPage=1;
+            renderTable();
+        }
+
+        function renderUTMTable() {
+            if(!allLeads.length){
+                utmTableBody.innerHTML = `<tr><td colspan="3" class="py-8 text-center text-gray-500">Nenhum dado UTM encontrado.</td></tr>`;
+                return;
+            }
+            const utmCounts = {};
+            allLeads.forEach(l => {
+                const s = l['utm_source'] || 'Sem UTM';
+                utmCounts[s] = (utmCounts[s]||0) + 1;
+            });
+            const sorted = Object.entries(utmCounts).sort((a,b)=>b[1]-a[1]);
+            const total = allLeads.length;
+            utmTableBody.innerHTML = sorted.map(([s,c]) =>
+                `<tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 font-medium text-gray-900">${s}</td>
+                    <td class="px-6 py-4">${c}</td>
+                    <td class="px-6 py-4">${Math.round(c/total*100)}%</td>
+                </tr>`
+            ).join('');
+        }
+
+        function renderTable() {
+            if(!filteredLeads.length){
+                dataTableBody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-gray-500">
+                    Nenhum lead encontrado com os filtros atuais.
+                </td></tr>`;
+                currentCountEl.textContent = '0';
+                totalCountEl.textContent   = '0';
+                prevPageBtn.disabled = nextPageBtn.disabled = true;
+                return;
+            }
+            const start = (currentPage-1)*leadsPerPage;
+            const end   = Math.min(start+leadsPerPage, filteredLeads.length);
+            const pageItems = filteredLeads.slice(start,end);
+
+            dataTableBody.innerHTML = pageItems.map(l => {
+                const groupBadge = l['Entrou no Grupo?']==='Sim'
+                    ? '<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">No grupo</span>'
+                    : '<span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">Fora do grupo</span>';
+                const incomeBadge = l['Vive de Trader?']==='Sim! Consigo viver muito bem.'
+                    ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">Vive de trade</span>'
+                    : l['Vive de Trader?']==='Não! Preciso complementar minha renda.'
+                        ? '<span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">Complementa renda</span>'
+                        : '<span class="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">Outra renda</span>';
+
+                return `<tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4"><div class="font-medium text-gray-900">${l['Nome']}</div></td>
+                    <td class="px-6 py-4"><div class="text-gray-900">${l['Email']}</div></td>
+                    <td class="px-6 py-4 hidden md:table-cell"><div class="text-gray-900">${l['Estado']}</div></td>
+                    <td class="px-6 py-4 hidden lg:table-cell"><div class="text-gray-900">${l['Idade']}</div></td>
+                    <td class="px-6 py-4">${groupBadge}</td>
+                    <td class="px-6 py-4 hidden xl:table-cell">${incomeBadge}</td>
+                    <td class="px-6 py-4 text-right text-sm font-medium">
+                        <button onclick="showLeadDetails('${l.id}')" class="text-indigo-600 hover:text-indigo-900">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            currentCountEl.textContent = `${start+1}-${end}`;
+            totalCountEl.textContent   = filteredLeads.length;
+            prevPageBtn.disabled = (currentPage===1);
+            nextPageBtn.disabled= (end>=filteredLeads.length);
+        }
+
+        window.showLeadDetails = function(id) {
+            const l = allLeads.find(x=>x.id===id);
+            if(!l) return;
+            document.getElementById('modal-title').textContent = `Detalhes do Lead: ${l['Nome']}`;
+            ['Nome','Email','Telefone','Estado','Estado Civil','Idade','Quantos Filhos','Quanto tempo conhece o Gorila Trader?','Vive de Trader?','Entrou no Grupo?','Origem','id'].forEach(key=>{
+                const elId = 'modal-'+({
+                    'Quantos Filhos':'children',
+                    'Quanto tempo conhece o Gorila Trader?':'time',
+                    'Vive de Trader?':'income',
+                    'Entrou no Grupo?':'group',
+                    'Estado Civil':'marital'
+                }[key]||key.toLowerCase().replace(/ /g,'-'));
+                document.getElementById(elId).textContent = l[key];
+            });
+            leadModal.classList.remove('hidden');
+        };
+
+        function initializeCharts() {
+            const ctx1 = document.getElementById('groupEntryChart').getContext('2d');
+            groupEntryChart = new Chart(ctx1,{
+                type:'line',
+                data:{ labels:[], datasets:[{ label:'Entradas no Grupo', data:[], borderWidth:2, tension:0.1, fill:true }]},
+                options:{ responsive:true, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } }
+            });
+
+            const ctx2 = document.getElementById('ageChart').getContext('2d');
+            ageChart = new Chart(ctx2,{
+                type:'bar',
+                data:{ labels:[], datasets:[{ label:'Leads por Idade', data:[], borderWidth:1 }]},
+                options:{ responsive:true, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } }
+            });
+
+            const ctx3 = document.getElementById('stateChart').getContext('2d');
+            stateChart = new Chart(ctx3,{
+                type: 'pie',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        borderWidth: 1,
+                        borderColor: '#fff',
+                        backgroundColor: [
+                            '#4F46E5',
+                            '#10B981',
+                            '#3B82F6',
+                            '#F59E0B',
+                            '#EF4444',
+                            '#6B7280'
+                        ]
+                    }]
+                },
+                options: { responsive: true }
+            });
+        }
+    </script>
+</body>
+</html>
